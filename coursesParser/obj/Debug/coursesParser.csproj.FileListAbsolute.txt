@@ -1,0 +1,10 @@
+c:\users\jacob.zukauska\documents\visual studio 2017\Projects\coursesParser\coursesParser\bin\Debug\coursesParser.exe.config
+c:\users\jacob.zukauska\documents\visual studio 2017\Projects\coursesParser\coursesParser\bin\Debug\coursesParser.exe
+c:\users\jacob.zukauska\documents\visual studio 2017\Projects\coursesParser\coursesParser\bin\Debug\coursesParser.pdb
+c:\users\jacob.zukauska\documents\visual studio 2017\Projects\coursesParser\coursesParser\bin\Debug\HtmlAgilityPack.dll
+c:\users\jacob.zukauska\documents\visual studio 2017\Projects\coursesParser\coursesParser\bin\Debug\HtmlAgilityPack.pdb
+c:\users\jacob.zukauska\documents\visual studio 2017\Projects\coursesParser\coursesParser\bin\Debug\HtmlAgilityPack.xml
+c:\users\jacob.zukauska\documents\visual studio 2017\Projects\coursesParser\coursesParser\obj\Debug\coursesParser.csprojResolveAssemblyReference.cache
+c:\users\jacob.zukauska\documents\visual studio 2017\Projects\coursesParser\coursesParser\obj\Debug\coursesParser.exe
+c:\users\jacob.zukauska\documents\visual studio 2017\Projects\coursesParser\coursesParser\obj\Debug\coursesParser.pdb
+C:\Users\jacob.zukauska\documents\visual studio 2017\Projects\coursesParser\coursesParser\bin\Debug\MySql.Data.dll
