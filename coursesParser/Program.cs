@@ -5,13 +5,13 @@ using System.Text;
 using System.Threading.Tasks;
 using HtmlAgilityPack;
 using MySql.Data.MySqlClient;
-
+using System.Text.RegularExpressions;
 
 namespace coursesParser
 {
     class Program
     {
-
+        private static Regex digitsOnly = new Regex(@"[^\d]");
         private static MySqlConnection openDatabase()
         {
             string userName = "";
@@ -167,98 +167,130 @@ namespace coursesParser
         }
         private static void getUniversityCatalog()
         {
-
             
 
-            // MySqlConnection comm = openDatabase();
-            string url = "https://catalog.stcloudstate.edu/Catalog/ViewCatalog.aspx?pageid=viewcatalog&catalogid=8&topicgroupid=107";
+        var conn = openDatabase();
 
-            string  name, description,  credits;
+            Console.WriteLine("Starting collection");
 
-            string preReqs, semestersOffered, shortVersion;
-            int courseNumber;
-
-            
+            MySqlCommand command = new MySqlCommand();
+            command.Connection = conn;
 
 
+            List<string> values = new List<string>();
 
 
-            HtmlWeb web = new HtmlWeb();
 
-            HtmlDocument document = web.Load(url);
-            Console.WriteLine("Webpage loaded");
+            string sql = "SELECT link FROM idp.course_names";
+            command.CommandText = sql;
+            MySqlDataReader reader = command.ExecuteReader();
 
-            
 
-            HtmlNode node = document.DocumentNode.SelectSingleNode("//body//span[@id='ctl00_ctl00_mainLayoutContent_mainContent_pager']");
-            var maxPages = node.LastChild.PreviousSibling.PreviousSibling.InnerText;// number of pages to concat onto thing
-            int tryer;
-            int.TryParse(maxPages, out tryer);
-            HtmlNodeCollection collection = document.DocumentNode.SelectNodes("//table[@class='DeAcFormTable']");
 
-            for (int j = 0; j < tryer; j++)
+            while (reader.Read())
             {
-                document = web.Load(url + $"&pg={j + 1 }");
 
-                collection = document.DocumentNode.SelectNodes("//table[@class='DeAcFormTable']");
-                for (int i = 0; i < collection.LongCount(); i += 2)
+               
+                
+                values.Add(digitsOnly.Replace(reader.GetString(0), "").Substring(1));
+                Console.WriteLine(digitsOnly.Replace(reader.GetString(0),"").Substring(1));
+
+            }
+
+           // foreach (string item in values)
+            {
+               // Console.WriteLine(item);
+
+                // MySqlConnection comm = openDatabase();
+                //string url =  $"http://catalog.stcloudstate.edu/Catalog/ViewCatalog.aspx?pageid=viewcatalog&catalogid=8&topicgroupid={item}";
+                string url = $"http://catalog.stcloudstate.edu/Catalog/ViewCatalog.aspx?pageid=viewcatalog&catalogid=8&topicgroupid=107";
+                Console.WriteLine(url);
+                string name, description, credits;
+
+                string preReqs, semestersOffered, shortVersion;
+                int courseNumber;
+
+
+
+
+
+
+                HtmlWeb web = new HtmlWeb();
+
+                HtmlDocument document = web.Load(url);
+                Console.WriteLine("Webpage loaded");
+
+
+
+                HtmlNode node = document.DocumentNode.SelectSingleNode("//body//span[@id='ctl00_ctl00_mainLayoutContent_mainContent_pager']");
+                string maxPages;
+                if (node != null)
                 {
-                    //Section to be parsed
-                    //------------------------------------------------------------------------------------------------------------------------
-                    name = document.DocumentNode.SelectSingleNode($"//table[{i + 1}]//h3").InnerText;
-                    description = document.DocumentNode.SelectSingleNode($"//table[{i + 2}]//td[2]").InnerText;
-                    credits = document.DocumentNode.SelectSingleNode($"//table[{i + 1}]//td[2]").InnerText;
-                    HtmlNodeCollection tempNode = document.DocumentNode.SelectNodes($"//table[{i + 2}]//tr[2]//a[@class='topictooltip']");
-                    HtmlNodeCollection tempOffered = document.DocumentNode.SelectNodes($"//table[{i + 2}]//tr[last()]//li");
+                     maxPages = node.LastChild.PreviousSibling.PreviousSibling.InnerText;
+                }
+                else
+                {
+                    maxPages = "1";
+                }
+                // number of pages to concat onto thing
+                int tryer;
+                int.TryParse(maxPages, out tryer);
+                HtmlNodeCollection collection = document.DocumentNode.SelectNodes("//table[@class='DeAcFormTable']");
 
-                    //------------------------------------------------------------------------------------------------------------------------
-                    
+                for (int j = 0; j < tryer; j++)
+                {
+                    document = web.Load(url + $"&pg={j + 1 }");
 
-                    
-                    shortVersion = name.Split(' ')[0];
-                    int.TryParse(name.Split(' ')[1].Replace(".", String.Empty), out courseNumber);
-                    name = name.Substring(name.LastIndexOf('.') + 1);
-                    credits = credits.Substring(credits.LastIndexOf(':') + 2);
-
-                    Console.WriteLine("----------"+courseNumber);
-                    //List<string> strList = new List<string>();
-                    if (tempNode != null)
+                    collection = document.DocumentNode.SelectNodes("//table[@class='DeAcFormTable']");
+                    for (int i = 0; i < collection.LongCount(); i += 2)
                     {
+                        //Section to be parsed
+                        //------------------------------------------------------------------------------------------------------------------------
+                        name = document.DocumentNode.SelectSingleNode($"//table[{i + 1}]//h3").InnerText;
+                        description = document.DocumentNode.SelectSingleNode($"//table[{i + 2}]//td[2]").InnerText;
+                        credits = document.DocumentNode.SelectSingleNode($"//table[{i + 1}]//td[2]").InnerText;
+                        HtmlNodeCollection tempPrereqs = document.DocumentNode.SelectNodes($"//table[{i + 2}]//tr[2]//a[@class='topictooltip']");
+                        HtmlNodeCollection tempOffered = document.DocumentNode.SelectNodes($"//table[{i + 2}]//tr[last()]//li");
 
-                        foreach (HtmlNode item in tempNode)
-                        {
-                            Console.WriteLine(item.InnerText);
-                            //strList.Add(item.InnerText);
-                        }
+                        //------------------------------------------------------------------------------------------------------------------------
+
+
+
+                        shortVersion = name.Split(' ')[0];
+                        int.TryParse(name.Split(' ')[1].Replace(".", String.Empty), out courseNumber);
+                        name = name.Substring(name.LastIndexOf('.') + 1).TrimStart();
+                        credits = credits.Substring(credits.LastIndexOf(':') + 2);
+
+                        Console.WriteLine(name + " " + courseNumber);
+
+                        //Database push
+                        //---------------------------------------------------- 
+                         MySqlCommand cmd = new MySqlCommand();
+                        cmd.Connection = conn;
+
+                        cmd.CommandText = string.Format("INSERT INTO idp.course_collection(course_number,short,name,description) VALUES('{0}','{1}','{2}','{3}')", courseNumber, name, description);
+
+
+                        cmd.ExecuteNonQuery();
+
+
+                        //----------------------------------------------------
+
+                        Console.WriteLine();
+
+                        
+
+
+
+
+
+
+
+
 
 
                     }
-                    Console.WriteLine();
 
-                    /* Console.WriteLine();
-                     Console.WriteLine(description);
-                     Console.WriteLine();
-                     Console.WriteLine(credits);
-                     Console.WriteLine();
-                     List<string> strList = new List<string>();
-                     if (tempNode != null)
-                     {
-
-                         foreach (HtmlNode item in tempNode)
-                         {
-                             Console.WriteLine(item.InnerHtml);
-                             strList.Add(item.InnerText);
-                         }
-
-
-                     }
-                     Console.WriteLine();
-
-
-
-
-
-                     Console.WriteLine("---------------------------------------------------"); */
 
 
 
@@ -267,37 +299,32 @@ namespace coursesParser
 
 
 
+
+
+
+
+
+
+
+                //*[@id="aspnetForm"]/div[6]/div[2]/div[2]/table[2]/tbody/tr[1]/td[2]
+                //foreach (HtmlNode node in nodeCollection)
+                //{
+                // Console.WriteLine(node. );
+                //}
+
+                //var conn = openDatabase();
+
+                //Console.WriteLine("Starting collection");
+
+                //MySqlCommand cmd = new MySqlCommand();
+                //cmd.Connection = conn;
+
+                //cmd.CommandText = string.Format("INSERT INTO idp.course_names(short_designator,actual_name,link) VALUES('{0}','{1}','{2}') on duplicate key update actual_name = values(actual_name), link = values(link);", i.shortName, i.name.Replace("'", "''"), i.link);
+
+
+                //cmd.ExecuteNonQuery();
+
             }
-
-
-
-
-           
-
-
-
-
-
-
-            //*[@id="aspnetForm"]/div[6]/div[2]/div[2]/table[2]/tbody/tr[1]/td[2]
-            //foreach (HtmlNode node in nodeCollection)
-            //{
-            // Console.WriteLine(node. );
-            //}
-
-            //var conn = openDatabase();
-
-            //Console.WriteLine("Starting collection");
-
-            //MySqlCommand cmd = new MySqlCommand();
-            //cmd.Connection = conn;
-
-            //cmd.CommandText = string.Format("INSERT INTO idp.course_names(short_designator,actual_name,link) VALUES('{0}','{1}','{2}') on duplicate key update actual_name = values(actual_name), link = values(link);", i.shortName, i.name.Replace("'", "''"), i.link);
-
-
-            //cmd.ExecuteNonQuery();
-
-
         }
 
         enum commands { exit, updateCategorys };
@@ -305,6 +332,8 @@ namespace coursesParser
         {
 
             getUniversityCatalog();
+
+            //regenCourseList();
             //bool flag = true;
 
             //String[] commandArray = new String[] { 0 + " to exit", 1 + " for Updateing course categories" };
