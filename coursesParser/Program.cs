@@ -12,6 +12,8 @@ namespace coursesParser
     class Program
     {
         private static Regex digitsOnly = new Regex(@"[^\d]");
+        private static Regex rgx = new Regex("[^a-zA-Z0-9 -]");
+
         private static MySqlConnection openDatabase()
         {
             string userName = "";
@@ -167,9 +169,10 @@ namespace coursesParser
         }
         private static void getUniversityCatalog()
         {
-            
 
-        var conn = openDatabase();
+
+            Console.WriteLine("Login to get links from database");
+            var conn = openDatabase();
 
             Console.WriteLine("Starting collection");
 
@@ -185,29 +188,35 @@ namespace coursesParser
             command.CommandText = sql;
             MySqlDataReader reader = command.ExecuteReader();
 
-
-
+            
+            
             while (reader.Read())
             {
 
                
                 
                 values.Add(digitsOnly.Replace(reader.GetString(0), "").Substring(1));
-                Console.WriteLine(digitsOnly.Replace(reader.GetString(0),"").Substring(1));
+                //Console.WriteLine(digitsOnly.Replace(reader.GetString(0),"").Substring(1));
 
             }
 
-           // foreach (string item in values)
+            conn.Close();
+            reader.Close();
+
+            MySqlConnection comm = openDatabase();
+            MySqlCommand cmd = new MySqlCommand();
+            cmd.Connection = comm;
+            foreach (string item in values)
             {
                // Console.WriteLine(item);
 
-                // MySqlConnection comm = openDatabase();
-                //string url =  $"http://catalog.stcloudstate.edu/Catalog/ViewCatalog.aspx?pageid=viewcatalog&catalogid=8&topicgroupid={item}";
-                string url = $"http://catalog.stcloudstate.edu/Catalog/ViewCatalog.aspx?pageid=viewcatalog&catalogid=8&topicgroupid=107";
-                Console.WriteLine(url);
+                 
+                string url =  $"http://catalog.stcloudstate.edu/Catalog/ViewCatalog.aspx?pageid=viewcatalog&catalogid=8&topicgroupid={item}";
+               // string url = $"http://catalog.stcloudstate.edu/Catalog/ViewCatalog.aspx?pageid=viewcatalog&catalogid=8&topicgroupid=107";
+                Console.WriteLine("Current url: " + url);
                 string name, description, credits;
 
-                string preReqs, semestersOffered, shortVersion;
+                string shortVersion,href;
                 int courseNumber;
 
 
@@ -236,11 +245,11 @@ namespace coursesParser
                 int tryer;
                 int.TryParse(maxPages, out tryer);
                 HtmlNodeCollection collection = document.DocumentNode.SelectNodes("//table[@class='DeAcFormTable']");
-
+                //Number of pages to grab 
                 for (int j = 0; j < tryer; j++)
                 {
                     document = web.Load(url + $"&pg={j + 1 }");
-
+                    //Amount of tables on the page
                     collection = document.DocumentNode.SelectNodes("//table[@class='DeAcFormTable']");
                     for (int i = 0; i < collection.LongCount(); i += 2)
                     {
@@ -260,71 +269,59 @@ namespace coursesParser
                         int.TryParse(name.Split(' ')[1].Replace(".", String.Empty), out courseNumber);
                         name = name.Substring(name.LastIndexOf('.') + 1).TrimStart();
                         credits = credits.Substring(credits.LastIndexOf(':') + 2);
-
+                        
                         Console.WriteLine(name + " " + courseNumber);
 
                         //Database push
                         //---------------------------------------------------- 
-                         MySqlCommand cmd = new MySqlCommand();
-                        cmd.Connection = conn;
-
-                        cmd.CommandText = string.Format("INSERT INTO idp.course_collection(course_number,short,name,description) VALUES('{0}','{1}','{2}','{3}')", courseNumber, name, description);
-
-
+                        Console.WriteLine("Trying to input this into the database:");
+                        Console.WriteLine($"Course number: {courseNumber}, Short Version: {shortVersion}, Name: {name}\nDescription: {description}");
+                        cmd.CommandText = string.Format("INSERT IGNORE INTO idp.course_collection(course_number,short,name,description) VALUES('{0}','{1}','{2}','{3}')", courseNumber, rgx.Replace(shortVersion, ""), rgx.Replace(name, ""), rgx.Replace(description, ""));
                         cmd.ExecuteNonQuery();
 
+                        if (tempOffered != null )
+                        {
+                            foreach (HtmlNode item1 in tempOffered)
+                            {
+                                Console.WriteLine(item1.InnerText + ", ");
+                                if (!item1.InnerText.Contains("GOAL"))
+                                {
+                                    cmd.CommandText = string.Format("INSERT  INTO idp.seasons(course_number,seasons) VALUES('{0}','{1}')", courseNumber, item1.InnerText);
 
-                        //----------------------------------------------------
+                                    cmd.ExecuteNonQuery();
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"********************{item1.InnerText}**************************");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            cmd.CommandText = string.Format("INSERT INTO idp.seasons(course_number,seasons) VALUES('{0}','{1}')", courseNumber, "Demand");
+                            cmd.ExecuteNonQuery();
+                        }
 
+
+                        if (tempPrereqs != null)
+                        {
+                            foreach (HtmlNode item1 in tempPrereqs)
+                            {
+                                Console.Write(item1.InnerText + ", ");
+                                cmd.CommandText = string.Format("INSERT IGNORE INTO idp.prereqs(course_number,prereq,link) VALUES('{0}','{1}','{2}')", courseNumber, item1.InnerText, item1.Attributes["href"].Value);
+
+                                cmd.ExecuteNonQuery();
+                            }
+                        }
                         Console.WriteLine();
 
-                        
-
-
-
-
-
-
-
-
-
-
                     }
-
-
-
-
+                    
                 }
 
-
-
-
-
-
-
-
-
-
-
-                //*[@id="aspnetForm"]/div[6]/div[2]/div[2]/table[2]/tbody/tr[1]/td[2]
-                //foreach (HtmlNode node in nodeCollection)
-                //{
-                // Console.WriteLine(node. );
-                //}
-
-                //var conn = openDatabase();
-
-                //Console.WriteLine("Starting collection");
-
-                //MySqlCommand cmd = new MySqlCommand();
-                //cmd.Connection = conn;
-
-                //cmd.CommandText = string.Format("INSERT INTO idp.course_names(short_designator,actual_name,link) VALUES('{0}','{1}','{2}') on duplicate key update actual_name = values(actual_name), link = values(link);", i.shortName, i.name.Replace("'", "''"), i.link);
-
-
-                //cmd.ExecuteNonQuery();
-
             }
+
+            comm.Close();
         }
 
         enum commands { exit, updateCategorys };
